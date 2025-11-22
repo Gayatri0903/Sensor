@@ -32,7 +32,7 @@ def motor_control(direction, speed):
 
 try:
     print("Forward")
-    motor_control(1, 150)  # Forward at 75% speed
+    motor_control(1, 100)  # Forward at 150% speed
     time.sleep(5)
 
     print("stop")
@@ -40,7 +40,7 @@ try:
     time.sleep(2)
     
     print("Backward")
-    motor_control(0, 150)  # Backward at 75% speed
+    motor_control(0, 100)  # Backward at 150% speed
     time.sleep(5)
 
     print("stop")
