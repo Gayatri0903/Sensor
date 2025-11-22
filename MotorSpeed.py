@@ -95,10 +95,10 @@ try:
 
     set_speed(100)  # HIGH SPEED
 
-    run_forward(60)     # 1 minute forward
+    run_forward(6)     # 1 minute forward
     stop(3)
 
-    run_reverse(60)     # 1 minute reverse
+    run_reverse(6)     # 1 minute reverse
     stop(3)
 
     print("[SYSTEM] Cycle complete.")
