@@ -1,48 +1,56 @@
 import RPi.GPIO as GPIO
 import time
 
-# MOTOR 1 (MD10C #1)
+# GPIO pins for Motor 1
 M1_DIR = 17
-M1_PWM = 18    # hardware PWM pin
+M1_PWM = 18  # hardware PWM recommended
 
-# MOTOR 2 (MD10C #2)
+# GPIO pins for Motor 2
 M2_DIR = 22
 M2_PWM = 23
 
 GPIO.setmode(GPIO.BCM)
 
-# Set all pins low initially for safety
-GPIO.setup(M1_DIR, GPIO.OUT, initial=GPIO.LOW)
-GPIO.setup(M1_PWM, GPIO.OUT, initial=GPIO.LOW)
-GPIO.setup(M2_DIR, GPIO.OUT, initial=GPIO.LOW)
-GPIO.setup(M2_PWM, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(M1_DIR, GPIO.OUT)
+GPIO.setup(M1_PWM, GPIO.OUT)
+GPIO.setup(M2_DIR, GPIO.OUT)
+GPIO.setup(M2_PWM, GPIO.OUT)
 
-# Create PWM objects at 1kHz
+# Create PWM objects (1000 Hz)
 pwm1 = GPIO.PWM(M1_PWM, 1000)
 pwm2 = GPIO.PWM(M2_PWM, 1000)
 
-# Start PWM at 0% (motors OFF first)
 pwm1.start(0)
 pwm2.start(0)
 
+def motors(direction, speed):
+    # direction: 1 = forward, 0 = reverse
+    # speed: 0–100 %
+    GPIO.output(M1_DIR, direction)
+    GPIO.output(M2_DIR, direction)
+
+    pwm1.ChangeDutyCycle(speed)
+    pwm2.ChangeDutyCycle(speed)
+
 try:
-    print("Motors running at high speed...")
+    print("Forward HIGH SPEED for 1 minute...")
+    motors(1, 100)      # Forward full speed
+    time.sleep(60)
 
-    # Set direction: 1 = forward, 0 = reverse
-    GPIO.output(M1_DIR, GPIO.HIGH)
-    GPIO.output(M2_DIR, GPIO.HIGH)
+    print("Stop for 3 seconds...")
+    motors(1, 0)
+    time.sleep(3)
 
-    # High speed (90–100%). 90% is safer than full 100%.
-    pwm1.ChangeDutyCycle(95)
-    pwm2.ChangeDutyCycle(95)
+    print("Reverse HIGH SPEED for 1 minute...")
+    motors(0, 100)      # Reverse full speed
+    time.sleep(60)
 
-    time.sleep(5)  # run for 5 seconds
+    print("Stop.")
+    motors(1, 0)
 
-    print("Stopping motors...")
-    pwm1.ChangeDutyCycle(0)
-    pwm2.ChangeDutyCycle(0)
+except KeyboardInterrupt:
+    pass
 
-finally:
-    pwm1.stop()
-    pwm2.stop()
-    GPIO.cleanup()
+pwm1.stop()
+pwm2.stop()
+GPIO.cleanup()
