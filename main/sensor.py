@@ -1,5 +1,5 @@
 # sensor.py
-from vl53l1x import VL53L1X
+from vl53l1x import vl53l1x
 
 class DistanceSensor:
     def __init__(self):
