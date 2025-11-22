@@ -3,46 +3,39 @@ from sensor import DistanceSensor
 from motors import Motors
 import time
 
+# Motor pins
+M1_DIR = 23
+M1_PWM = 24
+M2_DIR = 27
+M2_PWM = 22
+
+motors = Motors(M1_DIR, M1_PWM, M2_DIR, M2_PWM)
+sensor = DistanceSensor()
+
+print("System Started")
+
 try:
-    motors = Motors()
-    sensor = DistanceSensor()
-
-    print("System Started\n")
-
-    # -------------------------
-    # Run FORWARD for 1 minute
-    # -------------------------
-    print("Motors Forward...")
+    print("Motors Forward for 1 minute...")
     motors.forward(100)
-    start_time = time.time()
 
-    while time.time() - start_time < 60:
-        d = sensor.read_cm()
-        print(f"Distance: {d:.1f} cm")
-        time.sleep(0.1)
+    start = time.time()
+    while time.time() - start < 60:
+        dist = sensor.read_distance()
+        print(f"Distance: {dist} cm")
+        time.sleep(0.2)
 
-    motors.stop()
-    time.sleep(2)
-
-    # -------------------------
-    # Run REVERSE for 1 minute
-    # -------------------------
-    print("\nMotors Reverse...")
+    print("Motors Reverse for 1 minute...")
     motors.reverse(100)
-    start_time = time.time()
 
-    while time.time() - start_time < 60:
-        d = sensor.read_cm()
-        print(f"Distance: {d:.1f} cm")
-        time.sleep(0.1)
-
-    motors.stop()
-    print("\nDone.")
+    start = time.time()
+    while time.time() - start < 60:
+        dist = sensor.read_distance()
+        print(f"Distance: {dist} cm")
+        time.sleep(0.2)
 
 except KeyboardInterrupt:
     print("Stopped by user.")
 
 finally:
     motors.cleanup()
-    sensor.stop()
     print("GPIO cleaned up.")
