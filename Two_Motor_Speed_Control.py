@@ -32,20 +32,20 @@ def motor_control(direction, speed):
 
 try:
     print("Forward")
-    motor_control(1, 75)  # Forward at 75% speed
-    time.sleep(2)
+    motor_control(1, 150)  # Forward at 75% speed
+    time.sleep(5)
 
     print("stop")
     motor_control(1, 0)   # Stop
-    time.sleep(1)
+    time.sleep(2)
     
     print("Backward")
-    motor_control(0, 75)  # Backward at 75% speed
-    time.sleep(2)
+    motor_control(0, 150)  # Backward at 75% speed
+    time.sleep(5)
 
     print("stop")
     motor_control(1, 0)   # Stop
-    time.sleep(1)
+    time.sleep(2)
 except KeyboardInterrupt:
     pass
 
