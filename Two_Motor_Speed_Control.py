@@ -1,54 +1,54 @@
 import RPi.GPIO as GPIO
 import time
 
-#pin setup
-motorA_in1 = 17
-motorA_in2 = 18
-motorB_in1 = 22
-motorB_in2 = 23
+# GPIO pin definitions
+M1_DIR = 17  # Motor 1 Direction pin
+M1_PWM = 18  # Motor 1 PWM pin
 
+M2_DIR = 22  # Motor 2 Direction pin
+M2_PWM = 23  # Motor 2 PWM pin
+
+# Setup GPIO mode
 GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
 
-GPIO.setup(motorA_in1, GPIO.OUT)
-GPIO.setup(motorA_in2, GPIO.OUT)    
-GPIO.setup(motorB_in1, GPIO.OUT)
-GPIO.setup(motorB_in2, GPIO.OUT)
+GPIO.setup(M1_DIR, GPIO.OUT)
+GPIO.setup(M1_PWM, GPIO.OUT)
+GPIO.setup(M2_DIR, GPIO.OUT)
+GPIO.setup(M2_PWM, GPIO.OUT)
 
-def motorA_forward();
-    GPIO.output(motorA_in1, GPIO.HIGH)
-    GPIO.output(motorA_in2, GPIO.LOW)
+# Setup PWM
+pwm1 = GPIO.PWM(M1_PWM, 1000)  # 1 kHz frequency
+pwm2 = GPIO.PWM(M2_PWM, 1000)  # 1 kHz frequency
 
-def motorA_backward():
-    GPIO.output(motorA_in1, GPIO.LOW)
-    GPIO.output(motorA_in2, GPIO.HIGH)
+pwm1.start(0)  # Start PWM with 0% duty cycle
+pwm2.start(0)  # Start PWM with 0% duty cycle
 
-def motorB_forward():
-    GPIO.output(motorA_in1, GPIO.HIGH)
-    GPIO.output(motorA_in2, GPIO.LOW)   
+def motor_control(direction, speed):
+    GPIO.output(M1_DIR, direction)
+    GPIO.output(M2_DIR, direction)
 
-def motorB_backward():
-    GPIO.output(motorB_in1, GPIO.LOW)
-    GPIO.output(motorB_in2, GPIO.HIGH)
+    pwm1.ChangeDutyCycle(speed)
+    pwm2.ChangeDutyCycle(speed)
 
-def motors_stop():
-    GPIO.output(motorA_in1, GPIO.LOW)
-    GPIO.output(motorA_in2, GPIO.LOW)
-    GPIO.output(motorB_in1, GPIO.LOW)
-    GPIO.output(motorB_in2, GPIO.LOW)
+try:
+    print("Forward")
+    motor_control(1, 75)  # Forward at 75% speed
+    time.sleep(2)
 
-#Run Motors
-print("Motors Forward")
-motorA_forward()
-motorB_forward()
-time.sleep(2)
+    print("stop")
+    motor_control(1, 0)   # Stop
+    time.sleep(1)
+    
+    print("Backward")
+    motor_control(0, 75)  # Backward at 75% speed
+    time.sleep(2)
 
-print("Motors Backward")
-motorA_backward()   
-motorB_backward()
-time.sleep(2)
+    print("stop")
+    motor_control(1, 0)   # Stop
+    time.sleep(1)
+except KeyboardInterrupt:
+    pass
 
-print("Motors Stop")
-motors_stop()
-
+pwm1.stop()
+pwm2.stop()
 GPIO.cleanup()
