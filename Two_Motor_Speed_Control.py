@@ -1,54 +1,38 @@
-import RPi.GPIO as GPIO
+import pigpio
 import time
 
-# GPIO pin definitions
-M1_DIR = 17  # Motor 1 Direction pin
-M1_PWM = 18  # Motor 1 PWM pin
+pi = pigpio.pi()
+if not pi.connected:
+    raise RuntimeError("pigpiod not running")
 
-M2_DIR = 22  # Motor 2 Direction pin
-M2_PWM = 23  # Motor 2 PWM pin
+M1_DIR = 17
+M1_PWM = 18
+M2_DIR = 22
+M2_PWM = 23
 
-# Setup GPIO mode
-GPIO.setmode(GPIO.BCM)
+# Setup direction pins as outputs, set low initially
+pi.set_mode(M1_DIR, pigpio.OUTPUT)
+pi.set_mode(M2_DIR, pigpio.OUTPUT)
+pi.write(M1_DIR, 0)
+pi.write(M2_DIR, 0)
 
-GPIO.setup(M1_DIR, GPIO.OUT)
-GPIO.setup(M1_PWM, GPIO.OUT)
-GPIO.setup(M2_DIR, GPIO.OUT)
-GPIO.setup(M2_PWM, GPIO.OUT)
+# Set PWM frequency (hardware supports per-pin)
+pi.set_PWM_frequency(M1_PWM, 1000)
+pi.set_PWM_frequency(M2_PWM, 1000)
 
-# Setup PWM
-pwm1 = GPIO.PWM(M1_PWM, 1000)  # 1 kHz frequency
-pwm2 = GPIO.PWM(M2_PWM, 1000)  # 1 kHz frequency
+# Set both directions same
+pi.write(M1_DIR, 1)
+pi.write(M2_DIR, 1)
 
-pwm1.start(0)  # Start PWM with 0% duty cycle
-pwm2.start(0)  # Start PWM with 0% duty cycle
+# pigpio uses 0-255 duty range
+duty = int(0.95 * 255)  # 95% duty
+pi.set_PWM_dutycycle(M1_PWM, duty)
+pi.set_PWM_dutycycle(M2_PWM, duty)
 
-def motor_control(direction, speed):
-    GPIO.output(M1_DIR, direction)
-    GPIO.output(M2_DIR, direction)
+time.sleep(5)
 
-    pwm1.ChangeDutyCycle(speed)
-    pwm2.ChangeDutyCycle(speed)
+# Stop both
+pi.set_PWM_dutycycle(M1_PWM, 0)
+pi.set_PWM_dutycycle(M2_PWM, 0)
 
-try:
-    print("Forward")
-    motor_control(1, 100)  # Forward at 100% speed
-    time.sleep(2)
-
-    print("stop")
-    motor_control(1, 0)   # Stop
-    time.sleep(2)
-    
-    print("Backward")
-    motor_control(0, 100)  # Backward at 100% speed
-    time.sleep(2)
-
-    print("stop")
-    motor_control(1, 0)   # Stop
-    time.sleep(2)
-except KeyboardInterrupt:
-    pass
-
-pwm1.stop()
-pwm2.stop()
-GPIO.cleanup()
+pi.stop()
