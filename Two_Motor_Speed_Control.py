@@ -1,38 +1,48 @@
-import pigpio
+import RPi.GPIO as GPIO
 import time
 
-pi = pigpio.pi()
-if not pi.connected:
-    raise RuntimeError("pigpiod not running")
-
+# MOTOR 1 (MD10C #1)
 M1_DIR = 17
-M1_PWM = 18
+M1_PWM = 18    # hardware PWM pin
+
+# MOTOR 2 (MD10C #2)
 M2_DIR = 22
 M2_PWM = 23
 
-# Setup direction pins as outputs, set low initially
-pi.set_mode(M1_DIR, pigpio.OUTPUT)
-pi.set_mode(M2_DIR, pigpio.OUTPUT)
-pi.write(M1_DIR, 0)
-pi.write(M2_DIR, 0)
+GPIO.setmode(GPIO.BCM)
 
-# Set PWM frequency (hardware supports per-pin)
-pi.set_PWM_frequency(M1_PWM, 1000)
-pi.set_PWM_frequency(M2_PWM, 1000)
+# Set all pins low initially for safety
+GPIO.setup(M1_DIR, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(M1_PWM, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(M2_DIR, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(M2_PWM, GPIO.OUT, initial=GPIO.LOW)
 
-# Set both directions same
-pi.write(M1_DIR, 1)
-pi.write(M2_DIR, 1)
+# Create PWM objects at 1kHz
+pwm1 = GPIO.PWM(M1_PWM, 1000)
+pwm2 = GPIO.PWM(M2_PWM, 1000)
 
-# pigpio uses 0-255 duty range
-duty = int(0.95 * 255)  # 95% duty
-pi.set_PWM_dutycycle(M1_PWM, duty)
-pi.set_PWM_dutycycle(M2_PWM, duty)
+# Start PWM at 0% (motors OFF first)
+pwm1.start(0)
+pwm2.start(0)
 
-time.sleep(5)
+try:
+    print("Motors running at high speed...")
 
-# Stop both
-pi.set_PWM_dutycycle(M1_PWM, 0)
-pi.set_PWM_dutycycle(M2_PWM, 0)
+    # Set direction: 1 = forward, 0 = reverse
+    GPIO.output(M1_DIR, GPIO.HIGH)
+    GPIO.output(M2_DIR, GPIO.HIGH)
 
-pi.stop()
+    # High speed (90–100%). 90% is safer than full 100%.
+    pwm1.ChangeDutyCycle(95)
+    pwm2.ChangeDutyCycle(95)
+
+    time.sleep(5)  # run for 5 seconds
+
+    print("Stopping motors...")
+    pwm1.ChangeDutyCycle(0)
+    pwm2.ChangeDutyCycle(0)
+
+finally:
+    pwm1.stop()
+    pwm2.stop()
+    GPIO.cleanup()
