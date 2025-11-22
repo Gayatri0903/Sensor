@@ -27,7 +27,7 @@ pwm2.start(0)
 # SPEED = 100 (High speed)
 SPEED = 100
 
-def motors_forward():
+def motors_foard():
     GPIO.output(M1_DIR, 1)
     GPIO.output(M2_DIR, 1)
     pwm1.ChangeDutyCycle(SPEED)
