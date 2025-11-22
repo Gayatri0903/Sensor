@@ -45,17 +45,17 @@ def motors_stop():
 
 try:
     while True:
-        print("Forward for 1 minute (HIGH SPEED)")
+        print("Forward  (HIGH SPEED)")
         motors_forward()
-        time.sleep(60)
+        time.sleep(6)
 
         print("Stop 3 sec")
         motors_stop()
         time.sleep(3)
 
-        print("Reverse for 1 minute (HIGH SPEED)")
+        print("Reverse  (HIGH SPEED)")
         motors_reverse()
-        time.sleep(60)
+        time.sleep(6)
 
         print("Stop 3 sec")
         motors_stop()
