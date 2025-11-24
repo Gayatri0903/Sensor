@@ -1,5 +1,5 @@
 from sensor import DistanceSensor
-from motors import Motors
+from motors import MotorControl
 import time
 import RPi.GPIO as GPIO
 
