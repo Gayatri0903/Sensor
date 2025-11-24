@@ -2,7 +2,7 @@ from smbus2 import SMBus
 import time
 
 I2C_ADDRESS = 0x29
-REGISTER = 0x01
+REGISTER = 0xC2
 
 bus = SMBus(1)
 
