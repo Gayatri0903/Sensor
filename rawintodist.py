@@ -2,7 +2,7 @@ import smbus2
 import time
 
 # --- EDIT THESE TO MATCH YOUR SENSOR ---
-I2C_ADDR  = 0x40   # device address
+I2C_ADDR  = 0x29   # device address
 REG_MSB   = 0x00   # register for MSB
 REG_LSB   = 0x01   # register for LSB
 SCALE_MM  = 1.0    # raw → mm (example: 1 raw = 1 mm)
