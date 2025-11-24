@@ -1,18 +1,24 @@
-from smbus2 import SMBus
+import smbus2
 import time
 
-I2C_ADDRESS = 0x29
-REGISTER = 0x8A
+bus = smbus2.SMBus(1)
+address = 0x29  # VL53L0X default
 
-bus = SMBus(1)
+# Start ranging
+bus.write_byte_data(address, 0x00, 0x01)
 
-print("Reading raw I2C data... Press CTRL+C to stop.\n")
+while True:
+    # Check if data ready
+    if bus.read_byte_data(address, 0x14) == 0x04:
 
-try:
-    while True:
-        raw_byte = bus.read_byte_data(I2C_ADDRESS, REGISTER)
-        print(f"Register 0x{REGISTER:02X} -> Raw = {raw_byte:02X} ({raw_byte})")
-        time.sleep(0.1)
+        msb = bus.read_byte_data(address, 0x1E)
+        lsb = bus.read_byte_data(address, 0x1F)
 
-except KeyboardInterrupt:
-    print("\nStopped by user.")
+        distance = (msb << 8) | lsb
+
+        print("Distance:", distance, "mm")
+
+        # Clear interrupt
+        bus.write_byte_data(address, 0x0B, 0x01)
+
+    time.sleep(0.05)
