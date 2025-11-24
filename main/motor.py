@@ -55,3 +55,45 @@ class MotorControl:
 
             self.stop()
             time.sleep(2)
+            import RPi.GPIO as GPIO
+import time
+
+class Motors:
+    def __init__(self, in1, pwm1, in2, pwm2):
+        GPIO.setmode(GPIO.BCM)
+
+        self.in1 = in1
+        self.pwm1 = pwm1
+        self.in2 = in2
+        self.pwm2 = pwm2
+
+        GPIO.setup(self.in1, GPIO.OUT)
+        GPIO.setup(self.pwm1, GPIO.OUT)
+        GPIO.setup(self.in2, GPIO.OUT)
+        GPIO.setup(self.pwm2, GPIO.OUT)
+
+        self.m1 = GPIO.PWM(self.pwm1, 1000)
+        self.m2 = GPIO.PWM(self.pwm2, 1000)
+
+        self.m1.start(0)
+        self.m2.start(0)
+
+    def forward(self, speed=100):
+        GPIO.output(self.in1, GPIO.HIGH)
+        GPIO.output(self.in2, GPIO.HIGH)
+        self.m1.ChangeDutyCycle(speed)
+        self.m2.ChangeDutyCycle(speed)
+
+    def backward(self, speed=100):
+        GPIO.output(self.in1, GPIO.LOW)
+        GPIO.output(self.in2, GPIO.LOW)
+        self.m1.ChangeDutyCycle(speed)
+        self.m2.ChangeDutyCycle(speed)
+
+    def stop(self):
+        self.m1.ChangeDutyCycle(0)
+        self.m2.ChangeDutyCycle(0)
+
+    def cleanup(self):
+        self.stop()
+        GPIO.cleanup()
