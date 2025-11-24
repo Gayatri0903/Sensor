@@ -21,4 +21,4 @@ while True:
         # Clear interrupt
         bus.write_byte_data(address, 0x0B, 0x01)
 
-    time.sleep(0.05)
+    time.sleep(5)
