@@ -1,35 +1,27 @@
-from vl53l5cx import VL53L5CX
+from smbus2 import SMBus
 import time
 
-# Create sensor object
-sensor = VL53L5CX()
+# -------------------------------
+# EDIT THESE FOR YOUR SENSOR
+# -------------------------------
+I2C_ADDRESS = 0x29    # change to your sensor I2C address
+REG_START   = 0x00    # starting register to read from
+NUM_BYTES   = 8       # how many raw bytes you want to read
+# -------------------------------
 
-# Initialize sensor, upload firmware
-sensor.init()
+bus = SMBus(1)
 
-# Start ranging
-sensor.start_ranging()
-
-print("Reading RAW VL53LDK data continuously... Press CTRL+C to stop.\n")
+print("Reading RAW I2C bytes... Press CTRL+C to stop.\n")
 
 try:
     while True:
-        if sensor.check_data_ready():
-            data = sensor.get_ranging_data()
+        # Read a block of raw bytes
+        raw = bus.read_i2c_block_data(I2C_ADDRESS, REG_START, NUM_BYTES)
 
-            # RAW DATA = 32x32 matrix of distances
-            raw = data.distance_mm   # list of 32 lists, each with 32 values
+        # Print raw bytes in hex
+        print("RAW:", " ".join(f"{b:02X}" for b in raw))
 
-            # Print center zone as example
-            center = raw[16][16]
-            print("Center Zone:", center, "mm")
-
-            # To print full raw grid:
-            # for row in raw:
-            #     print(row)
-
-        time.sleep(0.02)
+        time.sleep(0.1)   # 10 times per second
 
 except KeyboardInterrupt:
-    sensor.stop_ranging()
     print("\nStopped.")
