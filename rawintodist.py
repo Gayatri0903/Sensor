@@ -1,31 +1,43 @@
 import smbus2
 import time
 
-# --- EDIT THESE TO MATCH YOUR SENSOR ---
-I2C_ADDR  = 0x29   # device address
-REG_MSB   = 0x00   # register for MSB
-REG_LSB   = 0x01   # register for LSB
-SCALE_MM  = 1.0    # raw → mm (example: 1 raw = 1 mm)
-# ---------------------------------------
+bus = smbus2.SMBus(1)
+addr = 0x29
 
-bus = smbus2.SMBus(1)  # I2C bus number (1 for Raspberry Pi)
+# ---- VL53L0X Simple Initialization ----
+def write(reg, value):
+    bus.write_byte_data(addr, reg, value)
 
+def read_byte(reg):
+    return bus.read_byte_data(addr, reg)
+
+def read_word(reg):
+    msb = bus.read_byte_data(addr, reg)
+    lsb = bus.read_byte_data(addr, reg + 1)
+    return (msb << 8) | lsb
+
+# Enable sensor (mandatory)
+write(0x88, read_byte(0x88) | 0x01)
+
+# Start continuous ranging
+write(0x80, 0x01)
+write(0xFF, 0x01)
+write(0x00, 0x00)
+write(0x91, read_byte(0x91))
+write(0x00, 0x01)
+write(0xFF, 0x00)
+write(0x80, 0x00)
+
+# Command: continuous mode
+write(0x00, 0x04)
+
+print("VL53L0X running...")
+
+# ---- Continuous Read Loop ----
 while True:
-    try:
-        # Read two bytes from sensor
-        msb = bus.read_byte_data(I2C_ADDR, REG_MSB)
-        lsb = bus.read_byte_data(I2C_ADDR, REG_LSB)
+    distance_mm = read_word(0x14)  # Correct distance register
+    distance_cm = distance_mm / 10.0
 
-        # Combine to 16-bit raw value
-        raw = (msb << 8) | lsb
+    print(f"Distance: {distance_mm} mm   {distance_cm:.2f} cm")
 
-        # Convert to distance
-        distance_mm = raw * SCALE_MM
-        distance_cm = distance_mm / 10.0
-
-        print(f"Raw: {raw}   Distance: {distance_mm:.1f} mm   {distance_cm:.2f} cm")
-
-    except Exception as e:
-        print("I2C error:", e)
-
-    time.sleep(0.1)  # 10 readings per second
+    time.sleep(0.05)  # 20 Hz
