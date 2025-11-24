@@ -15,7 +15,31 @@ print("Reading RAW I2C bytes... Press CTRL+C to stop.\n")
 
 try:
     while True:
-        # Read a block of raw bytes
+        # Read a block of raw byfrom smbus2 import SMBus
+import time
+
+address = 0x29
+MSB_REG = 0x14
+LSB_REG = 0x15
+
+bus = SMBus(1)
+
+print("Reading MSB + LSB continuously... CTRL+C to stop\n")
+
+while True:
+    try:
+        msb = bus.read_byte_data(address, MSB_REG)
+        lsb = bus.read_byte_data(address, LSB_REG)
+
+        raw = (msb << 8) | lsb
+
+        print(f"MSB={msb:02X}  LSB={lsb:02X}  RAW={raw}")
+
+        time.sleep(0.1)
+
+    except KeyboardInterrupt:
+        print("Stopped.")
+        breaktes
         raw = bus.read_i2c_block_data(I2C_ADDRESS, REG_START, NUM_BYTES)
 
         # Print raw bytes in hex
