@@ -1,25 +1,42 @@
 from smbus2 import SMBus
 import time
 
+# -----------------------------
+# SET THESE FOR YOUR SENSOR
+# -----------------------------
+I2C_ADDRESS = 0x29      # change to your sensor address (check with i2cdetect)
+REG_MSB = 0x14          # high-byte register address
+REG_LSB = 0x15          # low-byte register address
+# -----------------------------
+
 bus = SMBus(1)
-address = 0x29          # or 0x52 depending on your module
 
-DIST_MSB = 0x14
-DIST_LSB = 0x15
-
-print("Reading distance continuously... Press CTRL+C to stop")
+print("Reading raw I2C data continuously... Press CTRL+C to stop.\n")
 
 while True:
     try:
-        msb = bus.read_byte_data(address, DIST_MSB)
-        lsb = bus.read_byte_data(address, DIST_LSB)
+        # Read MSB and LSB
+        msb = bus.read_byte_data(I2C_ADDRESS, REG_MSB)
+        lsb = bus.read_byte_data(I2C_ADDRESS, REG_LSB)
 
-        distance_mm = (msb << 8) | lsb
+        # Combine into 16-bit number
+        raw_value = (msb << 8) | lsb
 
-        print("Distance:", distance_mm, "mm")
+        print(f"MSB: {msb:02X}, LSB: {lsb:02X}  -->  RAW: {raw_value}")
 
-        time.sleep(0.1)
+        time.sleep(0.1)  # read 10 times per second
 
     except KeyboardInterrupt:
         print("\nStopped by user.")
         break
+
+    except Exception as e:
+        print("Error:", e)
+ 
+
+
+
+
+
+
+
