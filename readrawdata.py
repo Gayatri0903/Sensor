@@ -1,42 +1,35 @@
-from smbus2 import SMBus
+from vl53l5cx import VL53L5CX
 import time
 
-# -----------------------------
-# SET THESE FOR YOUR SENSOR
-# -----------------------------
-I2C_ADDRESS = 0x29      # change to your sensor address (check with i2cdetect)
-REG_MSB = 0x14          # high-byte register address
-REG_LSB = 0x15          # low-byte register address
-# -----------------------------
+# Create sensor object
+sensor = VL53L5CX()
 
-bus = SMBus(1)
+# Initialize sensor, upload firmware
+sensor.init()
 
-print("Reading raw I2C data continuously... Press CTRL+C to stop.\n")
+# Start ranging
+sensor.start_ranging()
 
-while True:
-    try:
-        # Read MSB and LSB
-        msb = bus.read_byte_data(I2C_ADDRESS, REG_MSB)
-        lsb = bus.read_byte_data(I2C_ADDRESS, REG_LSB)
+print("Reading RAW VL53LDK data continuously... Press CTRL+C to stop.\n")
 
-        # Combine into 16-bit number
-        raw_value = (msb << 8) | lsb
+try:
+    while True:
+        if sensor.check_data_ready():
+            data = sensor.get_ranging_data()
 
-        print(f"MSB: {msb:02X}, LSB: {lsb:02X}  -->  RAW: {raw_value}")
+            # RAW DATA = 32x32 matrix of distances
+            raw = data.distance_mm   # list of 32 lists, each with 32 values
 
-        time.sleep(0.1)  # read 10 times per second
+            # Print center zone as example
+            center = raw[16][16]
+            print("Center Zone:", center, "mm")
 
-    except KeyboardInterrupt:
-        print("\nStopped by user.")
-        break
+            # To print full raw grid:
+            # for row in raw:
+            #     print(row)
 
-    except Exception as e:
-        print("Error:", e)
- 
+        time.sleep(0.02)
 
-
-
-
-
-
-
+except KeyboardInterrupt:
+    sensor.stop_ranging()
+    print("\nStopped.")
