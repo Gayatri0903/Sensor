@@ -3,7 +3,7 @@ import time
 
 # I2C settings (change to match your sensor)
 I2C_BUS = 1
-I2C_ADDR = 0x40       # sensor address
+I2C_ADDR = 0x29       # sensor address
 REG_MSB = 0x00        # high byte register
 REG_LSB = 0x01        # low byte register
 
