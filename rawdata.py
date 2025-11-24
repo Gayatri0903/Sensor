@@ -23,4 +23,4 @@ bus.write_byte_data(addr, 0x00, 0x02)  # sysrange start continuous mode
 while True:
     raw = bus.read_i2c_block_data(addr, 0x14, 14)
     print("RAW:", raw)
-    time.sleep(0.1)
+    time.sleep(1)
