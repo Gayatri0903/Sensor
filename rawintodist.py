@@ -1,80 +1,49 @@
-import time
 from smbus2 import SMBus
+import time
 
 I2C_ADDR = 0x29
 bus = SMBus(1)
 
-# ---------- BASIC REGISTER ACCESS ----------
-def write_reg(reg, value):
-    bus.write_byte_data(I2C_ADDR, reg, value)
+def write_reg(reg, val):
+    bus.write_byte_data(I2C_ADDR, reg, val)
 
-def read_reg(reg):
-    return bus.read_byte_data(I2C_ADDR, reg)
-
-def read_word(reg):
-    high = read_reg(reg)
-    low  = read_reg(reg+1)
+def read_reg16(reg):
+    high = bus.read_byte_data(I2C_ADDR, reg)
+    low  = bus.read_byte_data(I2C_ADDR, reg + 1)
     return (high << 8) | low
 
-
-# ---------- SENSOR INITIALIZATION ----------
 def sensor_init():
-    model = read_reg(0xC0)
-    revision = read_reg(0xC2)
+    # Put sensor in continuous mode
+    write_reg(0x00, 0x02)       # SYSRANGE_START = back-to-back continuous mode
+    time.sleep(0.005)
 
-    print(f"VL53L0X Model: {hex(model)}, Revision: {hex(revision)}")
-
-    if model != 0xEE:
-        print("WARNING: Unexpected Model ID! Check wiring.")
-    else:
-        print("VL53L0X detected.")
-
-    # Soft reset
-    write_reg(0x00, 0x00)
-    time.sleep(0.1)
-
-    # System Sequence Config – enable PreRange + FinalRange
-    write_reg(0x01, 0xFF)
-
-    # Set continuous mode timing
-    write_reg(0x04, 0x08)  # Inter-measurement period
-    write_reg(0x0A, 0x04)  # "New Sample Ready" interrupt
-
-    # Clear interrupts
-    write_reg(0x0B, 0x01)
-
-    # Start continuous ranging
-    write_reg(0x00, 0x02)
-    print("Sensor started in continuous mode.")
-
-
-# ---------- READ RAW + DISTANCE ----------
 def read_distance():
-    status = read_reg(0x13) & 0x07
-    if status != 0x04:   # 0x04 = "data ready"
-        return None, None
+    status = bus.read_byte_data(I2C_ADDR, 0x14)
 
-    # RAW registers from datasheet
-    ambient_raw = read_word(0xBC)
-    signal_raw  = read_word(0xC0)
+    if (status & 0x01) == 0:
+        return None, None, None   # No range data ready
 
-    # Final distance
-    distance_mm = read_word(0x14)
+    # Raw signals:
+    ambient = read_reg16(0xBC)       # RESULT_CORE_AMBIENT_WINDOW_EVENTS_RTN
+    signal  = read_reg16(0xC0)       # RESULT_CORE_RANGING_TOTAL_EVENTS_RTN
 
-    # Clear interrupt for next measurement
+    # Actual distance:
+    distance = read_reg16(0x1E)      # RESULT_RANGE_MM (valid for VL53L0X)
+
+    # Clear interrupt
     write_reg(0x0B, 0x01)
 
-    return (ambient_raw, signal_raw, distance_mm)
+    return ambient, signal, distance
 
-
-# ---------- MAIN LOOP ----------
 sensor_init()
-print("Reading distance continuously...\n")
+print("VL53L0X running in continuous mode...\n")
 
 while True:
     ambient, signal, dist = read_distance()
-    if dist is not None:
-        print(f"Ambient Raw: {ambient} | Signal Raw: {signal} | Distance: {dist} mm")
+
+    if dist is None:
+        print("Waiting for measurement...")
     else:
-        print("Waiting for new data...")
+        print(f"Ambient={ambient} | Signal={signal} | Distance={dist} mm")
+
     time.sleep(0.05)
