@@ -1,71 +1,39 @@
-#!/usr/bin/python3
 import smbus2
 import time
 
 I2C_ADDR = 0x29
 bus = smbus2.SMBus(1)
 
-# ---- BASIC REGISTER READ/WRITE ----
-def write_reg(reg, val):
-    bus.write_byte_data(I2C_ADDR, reg, val)
-
-def read_reg(reg):
-    return bus.read_byte_data(I2C_ADDR, reg)
-
-def read_word(reg):
-    high = read_reg(reg)
-    low  = read_reg(reg + 1)
+def read16(reg):
+    """Read 16-bit big-endian value"""
+    high = bus.read_byte_data(I2C_ADDR, reg)
+    low = bus.read_byte_data(I2C_ADDR, reg + 1)
     return (high << 8) | low
 
-# ---- START CONTINUOUS RANGING ----
-def start_continuous():
-    write_reg(0x80, 0x01)
-    write_reg(0xFF, 0x01)
-    write_reg(0x00, 0x00)
+def read_distance_mm():
+    """Read distance from VL53L0X raw registers"""
+    # 1) Wait for a new measurement
+    while True:
+        status = bus.read_byte_data(I2C_ADDR, 0x14)
+        if status & 0x01:   # bit0 = New sample ready
+            break
+        time.sleep(0.005)
 
-    write_reg(0x91, 0x3C)   # default static value for VL53L0X
-    write_reg(0x00, 0x01)
+    # 2) Distance is at RESULT_RANGE_STATUS + 10 = 0x14 + 0x0A = 0x1E
+    dist = read16(0x1E)
 
-    write_reg(0xFF, 0x00)
-    write_reg(0x80, 0x00)
+    # 3) Clear interrupt (acknowledge reading)
+    bus.write_byte_data(I2C_ADDR, 0x0B, 0x01)
 
-    write_reg(0x00, 0x04)   # continuous mode
+    return dist
 
-# ---- READ RAW & DISTANCE ----
-def read_measurement():
-    status = read_reg(0x13)      # RESULT_INTERRUPT_STATUS
-    
-    if (status & 0x07) == 0:     # no new data
-        return None
-
-    # RAW peak signal (16-bit)
-    raw_signal = read_word(0xB6)
-
-    # RAW ambient (16-bit)
-    raw_ambient = read_word(0xBC)
-
-    # DISTANCE (16-bit, mm)
-    dist = read_word(0x14)
-
-    # clear interrupt
-    write_reg(0x0B, 0x01)
-
-    return raw_signal, raw_ambient, dist
-
-
-# --------------- MAIN LOOP ------------------
-start_continuous()
-print("Reading distance + raw data…")
+print("Reading distance from VL53L0X...")
 
 while True:
-    data = read_measurement()
+    try:
+        d = read_distance_mm()
+        print("Distance:", d, "mm")
+    except Exception as e:
+        print("I2C Error:", e)
 
-    if data is None:
-        print("Waiting…")
-        time.sleep(0.03)
-        continue
-
-    raw_signal, raw_ambient, dist = data
-
-    print(f"Distance: {dist} mm | Raw Signal: {raw_signal} | Raw Ambient: {raw_ambient}")
     time.sleep(0.05)
