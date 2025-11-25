@@ -56,4 +56,10 @@ print("Reading distance...")
 
 while True:
     try:
-        dist = read_distance_mm()
+        dist = read_distance_mm()   # <-- FIXED
+        print("Distance:", dist, "mm")
+    except Exception as e:
+        print("I2C Error:", e)
+
+    time.sleep(0.05)
+
