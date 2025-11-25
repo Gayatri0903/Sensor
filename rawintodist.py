@@ -1,80 +1,78 @@
 from smbus2 import SMBus
 import time
 
-ADDR = 0x29                   # VL53L0X default address
+ADDR = 0x29
 bus = SMBus(1)
 
-# ---- BASIC I2C HELPERS ----
+# ---------------------------------------------------
+# BASIC HELPERS
+# ---------------------------------------------------
 def write(reg, val):
-    try:
-        bus.write_byte_data(ADDR, reg, val)
-        return True
-    except:
-        return False
+    bus.write_byte_data(ADDR, reg, val)
 
 def read(reg):
-    try:
-        return bus.read_byte_data(ADDR, reg)
-    except:
-        return None
+    return bus.read_byte_data(ADDR, reg)
 
 def read16(reg):
+    high = bus.read_byte_data(ADDR, reg)
+    low = bus.read_byte_data(ADDR, reg + 1)
+    return (high << 8) | low
+
+# ---------------------------------------------------
+# SIMPLE OFFICIAL INIT (NO COMPLEX SEQUENCES)
+# ---------------------------------------------------
+def init_vl53():
     try:
-        high = bus.read_byte_data(ADDR, reg)
-        low = bus.read_byte_data(ADDR, reg + 1)
-        return (high << 8) | low
-    except:
-        return None
+        # Mandatory boot sequence
+        write(0x88, read(0x88) | 0x01)
+        write(0x80, 0x01)
+        write(0xFF, 0x01)
+        write(0x00, 0x00)
+        write(0x91, read(0x91))
+        write(0x00, 0x01)
+        write(0xFF, 0x00)
+        write(0x80, 0x00)
+        return True
+    except Exception as e:
+        print("Init error:", e)
+        return False
 
-# ---- SENSOR INIT ----
-def init_sensor():
-    ok = True
-    ok &= write(0x88, (read(0x88) or 0) | 0x01)
-    ok &= write(0x80, 0x01)
-    ok &= write(0xFF, 0x01)
-    ok &= write(0x00, 0x00)
-    tmp = read(0x91)
-    ok &= write(0x00, 0x01)
-    ok &= write(0xFF, 0x00)
-    ok &= write(0x80, 0x00)
-    return ok
-
-def start_ranging():
+# ---------------------------------------------------
+# START ONE-TIME RANGING MEASUREMENT
+# ---------------------------------------------------
+def start_measurement():
     write(0x00, 0x01)
 
-def get_distance():
-    # Wait for measurement ready
-    r = read(0x13)
-    if r is None:
+# ---------------------------------------------------
+# READ RAW + CONVERT TO DISTANCE
+# ---------------------------------------------------
+def read_distance():
+    # Wait until measurement is ready
+    if (read(0x13) & 0x07) == 0:
         return None
 
-    if (r & 0x07) == 0:
-        return None
-
-    dist = read16(0x14)
-    write(0x0B, 0x01)  # Clear interrupt
-
+    dist = read16(0x14)  # raw → mm
+    write(0x0B, 0x01)    # clear interrupt
     return dist
 
+# ---------------------------------------------------
+# MAIN LOOP
+# ---------------------------------------------------
+print("Initializing sensor...")
 
-# ---- MAIN LOOP ----
-print("Initializing VL53L0X...")
+if not init_vl53():
+    print("Sensor init failed.")
+    exit()
 
-if not init_sensor():
-    print("⚠️ Sensor not acknowledged. Reading will retry anyway.")
-else:
-    print("✅ Sensor initialized.")
-
-start_ranging()
-
-print("\n--- Continuous Distance Readings ---\n")
+print("Sensor ready.\n")
+start_measurement()
 
 while True:
-    dist = get_distance()
+    d = read_distance()
 
-    if dist is None:
-        print("⚠️ No data (sensor not responding)...")
+    if d is not None:
+        print("Distance:", d, "mm")
     else:
-        print(f"Distance: {dist} mm")
+        print("Waiting...")
 
     time.sleep(0.05)
