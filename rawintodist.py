@@ -4,47 +4,36 @@ import time
 I2C_ADDR = 0x29
 bus = smbus2.SMBus(1)
 
-def write_reg(reg, val):
-    bus.write_byte_data(I2C_ADDR, reg, val)
+def read16(reg):
+    """Read 16-bit big-endian value"""
+    high = bus.read_byte_data(I2C_ADDR, reg)
+    low = bus.read_byte_data(I2C_ADDR, reg + 1)
+    return (high << 8) | low
 
-def read_reg(reg):
-    return bus.read_byte_data(I2C_ADDR, reg)
+def read_distance_mm():
+    """Read distance from VL53L0X raw registers"""
+    # 1) Wait for a new measurement
+    while True:
+        status = bus.read_byte_data(I2C_ADDR, 0x14)
+        if status & 0x01:   # bit0 = New sample ready
+            break
+        time.sleep(0.005)
 
-# ------------------------------------------------------------
-# INITIALIZE VL53L0X
-# ------------------------------------------------------------
-def sensor_init():
-    write_reg(0x00, 0x01)     # start continuous ranging
-    time.sleep(0.01)
+    # 2) Distance is at RESULT_RANGE_STATUS + 10 = 0x14 + 0x0A = 0x1E
+    dist = read16(0x1E)
 
-# ------------------------------------------------------------
-# READ RAW DISTANCE
-# ------------------------------------------------------------
-def read_raw_distance():
-    status = read_reg(0x13)        # RESULT_INTERRUPT_STATUS
+    # 3) Clear interrupt (acknowledge reading)
+    bus.write_byte_data(I2C_ADDR, 0x0B, 0x01)
 
-    # bit 0 == new measurement ready
-    if (status & 0x07) == 0:
-        return None  # not ready yet
+    return dist
 
-    # distance is stored at registers 0x1E + 0x1F
-    high = read_reg(0x1E)
-    low  = read_reg(0x1F)
-
-    distance_mm = (high << 8) | low
-
-    write_reg(0x0B, 0x01)          # clear interrupt
-
-    return distance_mm
-
-# ------------------------------------------------------------
-# MAIN LOOP
-# ------------------------------------------------------------
-sensor_init()
-print("Reading raw distance continuously...\n")
+print("Reading distance from VL53L0X...")
 
 while True:
-    dist = read_raw_distance()
-    if dist is not None:
-        print("Distance:", dist, "mm")
+    try:
+        d = read_distance_mm()
+        print("Distance:", d, "mm")
+    except Exception as e:
+        print("I2C Error:", e)
+
     time.sleep(0.05)
