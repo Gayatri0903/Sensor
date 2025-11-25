@@ -1,75 +1,71 @@
 from smbus2 import SMBus
 import time
 
-I2C_ADDR = 0x29
+ADDR = 0x29  # VL53L0X default I2C address
 bus = SMBus(1)
 
-# -------------------------------
-# Low-level helpers
-# -------------------------------
-def write(reg, val):
-    bus.write_byte_data(I2C_ADDR, reg, val)
+# Helpers
+def write(reg, value):
+    bus.write_byte_data(ADDR, reg, value)
 
 def read(reg):
-    return bus.read_byte_data(I2C_ADDR, reg)
+    return bus.read_byte_data(ADDR, reg)
 
 def read16(reg):
-    data = bus.read_i2c_block_data(I2C_ADDR, reg, 2)
-    return (data[0] << 8) | data[1]
+    high = bus.read_byte_data(ADDR, reg)
+    low = bus.read_byte_data(ADDR, reg + 1)
+    return (high << 8) + low
 
-# -------------------------------
-# VL53L0X Initialization Sequence
-# -------------------------------
+# Minimal init sequence from ST application notes
 def vl53l0x_init():
-    # Check model ID
-    model = read(0xC0)
-    if model != 0xEE:
-        print("Wrong Model ID:", hex(model))
+    try:
+        # Sensor boot
+        write(0x88, read(0x88) | 0x01)
+
+        write(0x80, 0x01)
+        write(0xFF, 0x01)
+        write(0x00, 0x00)
+        write(0x91, read(0x91))
+        write(0x00, 0x01)
+        write(0xFF, 0x00)
+        write(0x80, 0x00)
+
+        return True
+    except Exception as e:
+        print("❌ Initialization error:", e)
         return False
-    
-    # Fresh device boot
-    write(0x88, read(0x88) | 0x01)
 
-    write(0x80, 0x01)
-    write(0xFF, 0x01)
-    write(0x00, 0x00)
-    write(0xFF, 0x00)
-    write(0x80, 0x00)
+def start_ranging():
+    write(0x00, 0x01)  # SYSRANGE_START
 
-    # Set continuous mode
-    write(0x01, 0x02)   # max convergence time
-    write(0x00, 0x02)   # start continuous ranging
+def get_distance():
+    # Wait for measurement ready
+    while (read(0x13) & 0x07) == 0:
+        time.sleep(0.002)
 
-    time.sleep(0.05)
-    return True
+    distance = read16(0x14)  # RESULT_RANGE_STATUS + 10
 
-# -------------------------------
-# Get distance (mm)
-# -------------------------------
-def get_distance_mm():
-    # Wait for data ready
-    if (read(0x13) & 0x07) == 0:
-        return None
+    write(0x0B, 0x01)  # clear interrupt
 
-    # Read distance registers
-    dist = read16(0x1E)
+    return distance
 
-    # Clear interrupt
-    write(0x0B, 0x01)
+# ---- MAIN PROGRAM ----
+if __name__ == "__main__":
+    print("Initializing VL53L0X...")
 
-    return dist
+    if not vl53l0x_init():
+        print("❌ Failed to initialize VL53L0X.")
+        exit()
 
-# -------------------------------
-# Main Loop
-# -------------------------------
-if not vl53l0x_init():
-    print("Sensor failed to initialize.")
-    exit()
+    print("✅ Sensor initialized. Starting ranging...\n")
 
-print("VL53L0X running...\n")
+    start_ranging()
 
-while True:
-    d = get_distance_mm()
-    if d is not None:
-        print(f"Distance: {d} mm   ({d/10.0:.1f} cm)")
-    time.sleep(0.05)
+    try:
+        while True:
+            dist = get_distance()
+            print(f"Distance: {dist} mm")
+            time.sleep(0.05)
+
+    except KeyboardInterrupt:
+        print("\nStopped.")
