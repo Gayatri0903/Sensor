@@ -60,3 +60,21 @@ def read_distance():
 
     # Final distance
     distance_mm = read_word(0x14)
+
+    # Clear interrupt for next measurement
+    write_reg(0x0B, 0x01)
+
+    return (ambient_raw, signal_raw, distance_mm)
+
+
+# ---------- MAIN LOOP ----------
+sensor_init()
+print("Reading distance continuously...\n")
+
+while True:
+    ambient, signal, dist = read_distance()
+    if dist is not None:
+        print(f"Ambient Raw: {ambient} | Signal Raw: {signal} | Distance: {dist} mm")
+    else:
+        print("Waiting for new data...")
+    time.sleep(0.05)
