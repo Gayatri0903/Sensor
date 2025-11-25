@@ -56,4 +56,4 @@ print("Reading distance...")
 
 while True:
     try:
-        dist = read_distance_mm
+        dist = read_distance_mm()
