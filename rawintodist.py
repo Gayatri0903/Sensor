@@ -1,49 +1,39 @@
 import smbus2
 import time
 
-bus = smbus2.SMBus(1)
 I2C_ADDR = 0x29
+bus = smbus2.SMBus(1)
 
-# --- Write a register ---
-def write_reg(reg, value):
-    bus.write_byte_data(I2C_ADDR, reg, value)
+def read16(reg):
+    """Read 16-bit big-endian value"""
+    high = bus.read_byte_data(I2C_ADDR, reg)
+    low = bus.read_byte_data(I2C_ADDR, reg + 1)
+    return (high << 8) | low
 
-# --- Read a register ---
-def read_reg(reg):
-    return bus.read_byte_data(I2C_ADDR, reg)
-
-# --- Start a single measurement ---
-def start_measurement():
-    write_reg(0x00, 0x01)   # SYSRANGE_START – start measurement
-
-# --- Read raw distance ---
-def read_raw_distance():
-    # Wait for device to assert "measurement ready"
-    # RESULT_INTERRUPT_STATUS = 0x13, bit0 = new sample ready
+def read_distance_mm():
+    """Read distance from VL53L0X raw registers"""
+    # 1) Wait for a new measurement
     while True:
-        status = read_reg(0x13)
-        if status & 0x07:       # any valid new-sample flag
+        status = bus.read_byte_data(I2C_ADDR, 0x14)
+        if status & 0x01:   # bit0 = New sample ready
             break
-        print("Waiting for measurement...")
-        time.sleep(0.01)
+        time.sleep(0.005)
 
-    # Distance result registers
-    high = read_reg(0x1E)
-    low  = read_reg(0x1F)
+    # 2) Distance is at RESULT_RANGE_STATUS + 10 = 0x14 + 0x0A = 0x1E
+    dist = read16(0x1E)
 
-    # Convert raw 16-bit value → mm
-    distance_mm = (high << 8) | low
+    # 3) Clear interrupt (acknowledge reading)
+    bus.write_byte_data(I2C_ADDR, 0x0B, 0x01)
 
-    # Clear interrupt
-    write_reg(0x0B, 0x01)
+    return dist
 
-    return distance_mm
-
-# --- MAIN LOOP ---
-print("VL53L0X — raw distance reader")
+print("Reading distance from VL53L0X...")
 
 while True:
-    start_measurement()
-    dist = read_raw_distance()
-    print("Distance:", dist, "mm")
+    try:
+        d = read_distance_mm()
+        print("Distance:", d, "mm")
+    except Exception as e:
+        print("I2C Error:", e)
+
     time.sleep(0.05)
