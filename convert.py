@@ -1,39 +1,55 @@
-import smbus2
 import time
+import board
+import busio
+import adafruit_vl53l0x
 
-I2C_ADDR = 0x29
-bus = smbus2.SMBus(1)
+class VL53L0XReader:
+    def __init__(self, scl=board.SCL, sda=board.SDA, delay=0.1):
+        """
+        VL53L0X continuous distance reader.
 
-def read16(reg):
-    """Read 16-bit big-endian value"""
-    high = bus.read_byte_data(I2C_ADDR, reg)
-    low = bus.read_byte_data(I2C_ADDR, reg + 1)
-    return (high << 8) | low
+        :param scl: SCL pin (default: board.SCL)
+        :param sda: SDA pin (default: board.SDA)
+        :param delay: Delay between readings in seconds (default: 0.1)
+        """
+        self.delay = delay
+        
+        # Initialize I2C bus
+        self.i2c = busio.I2C(scl, sda)
 
-def read_distance_mm():
-    """Read distance from VL53L0X raw registers"""
-    # 1) Wait for a new measurement
-    while True:
-        status = bus.read_byte_data(I2C_ADDR, 0x14)
-        if status & 0x01:   # bit0 = New sample ready
-            break
-        time.sleep(0.005)
+        # Initialize sensor
+        self.sensor = adafruit_vl53l0x.VL53L0X(self.i2c)
 
-    # 2) Distance is at RESULT_RANGE_STATUS + 10 = 0x14 + 0x0A = 0x1E
-    dist = read16(0x1E)
+        print("VL53L0X initialized. Starting continuous reading...")
 
-    # 3) Clear interrupt (acknowledge reading)
-    bus.write_byte_data(I2C_ADDR, 0x0B, 0x01)
+    def read_raw(self):
+        """
+        Reads raw sensor range data (in millimeters).
+        The Adafruit driver already gives raw distance.
+        """
+        return self.sensor.range
 
-    return dist
+    def read_distance_mm(self):
+        """
+        Converts raw data to distance in millimeters (same as raw).
+        """
+        raw = self.read_raw()
+        return raw  # already mm
 
-print("Reading distance from VL53L0X...")
+    def read_distance_cm(self):
+        """
+        Converts raw distance into centimeters.
+        """
+        return self.read_distance_mm() / 10.0
 
-while True:
-    try:
-        d = read_distance_mm()
-        print("Distance:", d, "mm")
-    except Exception as e:
-        print("I2C Error:", e)
+    def start_continuous(self):
+        """
+        Continuously read raw + converted distance.
+        """
+        while True:
+            raw = self.read_raw()
+            dist_mm = raw
+            dist_cm = dist_mm / 10.0
 
-    time.sleep(0.05)
+            print(f"Raw: {raw}  |  Distance: {dist_mm} mm  |  {dist_cm:.2f} cm")
+            time.sleep(self.delay)
