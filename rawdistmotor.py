@@ -2,120 +2,118 @@ import time
 import board
 import busio
 import adafruit_vl53l0x
-import RPi.GPIO as GPIO
+import lgpio
 
-# ================================
-# MOTOR DRIVER CLASS (MD10C R3)
-# ================================
+# ======================================
+# MOTOR DRIVER (MD10C R3) – Pi 5 Version
+# ======================================
 class Motor:
-    def __init__(self, pwm_pin, dir_pin, freq=1000):
-        GPIO.setup(pwm_pin, GPIO.OUT)
-        GPIO.setup(dir_pin, GPIO.OUT)
+    def __init__(self, chip, pwm_pin, dir_pin, freq=1000):
+        self.chip = chip
+        self.pwm_pin = pwm_pin
+        self.dir_pin = dir_pin
+        self.freq = freq
 
-        self.pwm = GPIO.PWM(pwm_pin, freq)
-        self.dir = dir_pin
+        # Claim pins
+        lgpio.gpio_claim_output(chip, dir_pin)
+        lgpio.gpio_claim_output(chip, pwm_pin)
 
-        self.pwm.start(0)
+        # Set PWM output (0% duty at start)
+        lgpio.tx_pwm(chip, pwm_pin, freq, 0)
 
     def set_speed(self, speed):
         """
-        speed = -100 to +100
-        negative = reverse
+        speed: -100 to +100
+        - = reverse
+        + = forward
         """
-        if speed < 0:
-            GPIO.output(self.dir, GPIO.LOW)
-            speed = -speed
-        else:
-            GPIO.output(self.dir, GPIO.HIGH)
+        direction = 1 if speed >= 0 else 0
+        speed = abs(speed)
 
         if speed > 100:
             speed = 100
 
-        self.pwm.ChangeDutyCycle(speed)
+        # Set direction
+        lgpio.gpio_write(self.chip, self.dir_pin, direction)
+
+        # Set duty cycle
+        lgpio.tx_pwm(self.chip, self.pwm_pin, self.freq, speed)
 
     def stop(self):
-        self.pwm.ChangeDutyCycle(0)
+        lgpio.tx_pwm(self.chip, self.pwm_pin, self.freq, 0)
 
 
-# ================================
-# SENSOR CLASS
-# ================================
+# =====================================
+# VL53L0X SENSOR READER
+# =====================================
 class VL53L0XReader:
-    def __init__(self, delay=0.1):
-        self.delay = delay
-
+    def __init__(self):
         i2c = busio.I2C(board.SCL, board.SDA)
         self.sensor = adafruit_vl53l0x.VL53L0X(i2c)
+        print("VL53L0X sensor initialized.")
 
-        print("VL53L0X Initialized.")
-
-    def read_mm(self):
-        return self.sensor.range
-
-    def read_cm(self):
+    def distance_cm(self):
         return self.sensor.range / 10.0
 
 
-# ================================
-# MAIN CONTROL LOGIC
-# ================================
-GPIO.setmode(GPIO.BCM)
+# =====================================
+# MAIN ROBOT LOGIC
+# =====================================
+def main():
+    chip = lgpio.gpiochip_open(0)
 
-# Motor A pins
-M1_PWM = 18
-M1_DIR = 23
+    # Motor pin assignments
+    M1_PWM = 18   # left motor
+    M1_DIR = 23
+    M2_PWM = 19   # right motor
+    M2_DIR = 24
 
-# Motor B pins
-M2_PWM = 19
-M2_DIR = 24
+    motor1 = Motor(chip, M1_PWM, M1_DIR)
+    motor2 = Motor(chip, M2_PWM, M2_DIR)
 
-motor1 = Motor(M1_PWM, M1_DIR)
-motor2 = Motor(M2_PWM, M2_DIR)
+    sensor = VL53L0XReader()
 
-sensor = VL53L0XReader(delay=0.1)
+    print("\nRobot Started. Press CTRL+C to stop.\n")
 
-print("Starting robot control...\n")
+    try:
+        while True:
+            dist = sensor.distance_cm()
+            print(f"Distance: {dist:.1f} cm")
 
-try:
-    while True:
-        dist = sensor.read_cm()
+            # ============================
+            # SPEED CONTROL LOGIC
+            # ============================
+            if dist > 80:
+                speed = 90
+                print("➡ HIGH SPEED")
 
-        print(f"Distance: {dist:.2f} cm")
+            elif 40 < dist <= 80:
+                speed = 60
+                print("➡ MEDIUM SPEED")
 
-        # ===============================
-        # SPEED LOGIC BASED ON DISTANCE
-        # ===============================
-        if dist > 80:
-            # FAR → HIGH SPEED
-            motor_speed = 90
-            print("High speed")
+            elif 20 < dist <= 40:
+                speed = 30
+                print("➡ LOW SPEED")
 
-        elif 40 < dist <= 80:
-            # MEDIUM RANGE → MEDIUM SPEED
-            motor_speed = 60
-            print("Medium speed")
+            else:
+                print("⛔ STOP — TOO CLOSE")
+                motor1.stop()
+                motor2.stop()
+                time.sleep(0.1)
+                continue
 
-        elif 20 < dist <= 40:
-            # CLOSE → LOW SPEED
-            motor_speed = 30
-            print("Low speed")
+            motor1.set_speed(speed)
+            motor2.set_speed(speed)
 
-        else:
-            # TOO CLOSE → STOP
-            motor1.stop()
-            motor2.stop()
-            print("STOP (Obstacle too close)")
             time.sleep(0.1)
-            continue
 
-        # Apply speed to both motors (forward)
-        motor1.set_speed(motor_speed)
-        motor2.set_speed(motor_speed)
+    except KeyboardInterrupt:
+        print("\nStopping motors...")
+        motor1.stop()
+        motor2.stop()
+        lgpio.gpiochip_close(chip)
+        print("Robot stopped.")
 
-        time.sleep(0.1)
 
-except KeyboardInterrupt:
-    print("Stopping...")
-    motor1.stop()
-    motor2.stop()
-    GPIO.cleanup()
+if __name__ == "__main__":
+    main()
