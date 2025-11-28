@@ -1,23 +1,20 @@
+from picamera2 import Picamera2
 import cv2
 
-# 0 = first camera (/dev/video0)
-cap = cv2.VideoCapture(0)
+picam2 = Picamera2()
 
-if not cap.isOpened():
-    print("Camera not detected!")
-    exit()
+config = picam2.create_preview_configuration()
+picam2.configure(config)
+
+picam2.start()
 
 while True:
-    ret, frame = cap.read()
-    if not ret:
-        print("Failed to grab frame")
+    frame = picam2.capture_array()
+
+    cv2.imshow("Camera Preview", frame)
+
+    if cv2.waitKey(1) & 0xFF == 27:  # ESC to exit
         break
 
-    cv2.imshow("OpenCV Camera Preview", frame)
-
-    # Press ESC to exit
-    if cv2.waitKey(1) == 27:
-        break
-
-cap.release()
 cv2.destroyAllWindows()
+picam2.stop()
